@@ -59,7 +59,7 @@ class Player:
         print(f'Игрок {self.name} вычеркнул бочонок {barrel} на строке {row_idx} в столбце {col_idx}')
 
         # Проверяем окончание игры
-        if len(self.moves) < 15:
+        if len(self.moves['row']) < 15:
             return GameStatus.NEXT_MOVE
         else:
             return GameStatus.WIN
@@ -70,28 +70,30 @@ class Player:
         row_idx, col_idx = self.check_barrel(barrel)
         barrel_on_card = row_idx is not None
 
+        # Моделируем у робота возможность ошибки
         if not self.is_human:
-            
-            #  Если робот
-            if barrel_on_card:
-                # Возвращаем либо след ход либо выигрыш
-                return self.update_moves_list(row_idx,col_idx,barrel)
-            else:
-                #  возвращаем след ход
-                return GameStatus.NEXT_MOVE
+            # робот не ошибается в 99% случаев
+            if random.random() > 0.01:
+                strike_out = barrel_on_card
+            else:            
+                # в 5% случаев инвертируем правильный результат    
+                strike_out = not barrel_on_card
+
+        if barrel_on_card and strike_out:
+            # Если цифра нашлась (индекс не None) и команда "Вычеркнуть"
+            # то верный ход
+            return self.update_moves_list(row_idx,col_idx,barrel)
+        elif not barrel_on_card and not strike_out:
+            # верный пропуск хода
+            return GameStatus.NEXT_MOVE
         else:
-            
-            #  Если человек
-            if barrel_on_card and strike_out:
-                # Если цифра нашлась (индекс не None) и команда "Вычеркнуть"
-                # то верный ход
-                return self.update_moves_list(row_idx,col_idx,barrel)
-            elif not barrel_on_card and not strike_out:
-                # верный пропуск хода
-                return GameStatus.NEXT_MOVE
+            # Ошибка: зря вычеркнул или не заметил
+            print(f'{self.name} ошибся')
+            if barrel_on_card:
+                print('Не заметил номера бочонка в своей карточке')
             else:
-                # Ошибка: зря вычеркнул или не заметил
-                return GameStatus.LOOSE   
+                print('Попытался вычеркнуть номер, которого нет в карточке')                
+            return GameStatus.LOOSE   
         
     def show_card(self):
         # готовит df для печати текущего состояния карты игрока
@@ -126,6 +128,7 @@ class PlayRound:
             raise ValueError("Количество игроков должно быть от 2 до 5.")
         self.players = list(players)  # Преобразуем кортеж в список для удобства
         self.lotto = Lotto()
+        self.move_num = 0
     
     def run_play_round(self):
         
@@ -136,8 +139,9 @@ class PlayRound:
         self.print_cards()
         
         # Цикл игры
-        while (barrel := self.lotto.draw()):
 
+        while (barrel := self.lotto.draw()):
+            self.move_num+=1
             print(f"Выбран бочонок: {barrel}")
 
             # Ходы всех игроков
@@ -151,6 +155,7 @@ class PlayRound:
                     strike_out = None
 
                 status = player.check_move(strike_out, barrel)
+                
                 if status == GameStatus.WIN:
                     self.print_cards()
                     print(f'Поздравляю! {player.name} выиграл(а)!')
@@ -158,19 +163,24 @@ class PlayRound:
                 elif status == GameStatus.LOOSE:
 
                     print(f'{player.name} проиграл(а) и выбывает из игры!')
-                    if len(self.players) > 1:
+                    if len(self.players) >= 2:
                         self.players.remove(player)
-                    else:
-                        print('Все игроки выбыли. Ничья!')
+
+                    if len(self.players) == 2:
+                        continue
+                    elif len(self.players) == 1: 
+                        print(f'Остался один игрок {self.players[0].name}. Победа присуждается ему')
                         return
+                    else:
+                        print('Ни одного игрока не осталось. Ничья')
+                        return                       
+
                     
             # Печать текущего статуса карточек
             self.print_cards()        
 
         else:
             print('Все бочонки кончились! Ничья')
-
-        print('Спасибо! Игра закончена')
 
     def print_cards(self):
         # Печатаем карточки всех игроков в один ряд
@@ -201,6 +211,9 @@ class PlayRound:
         # Применение MultiIndex
         df_joined.columns = pd.MultiIndex.from_tuples(multi_cols)
 
+        # Убиваем заголовки второго уровня
+        # df_joined.columns = df_joined.columns.droplevel(1)
+
         # Выводим результат
         print(df_joined.to_string(index=False))
 
@@ -208,9 +221,11 @@ class PlayRound:
 if __name__ == "__main__":
 
     # Создаем игроков
-    player1 = Player(name="Алиса", is_human=True)
+    player1 = Player(name="Алиса", is_human=False)
     player2 = Player(name="Боб", is_human=False)  # Робот
+    player3 = Player(name="Виктор", is_human=False)  # Робот
 
     # Создаем игровой раунд с двумя игроками
-    game_round = PlayRound(player1, player2)
+    game_round = PlayRound(player1, player2, player3)
     game_round.run_play_round()
+    print(f'Спасибо! Игра закончена на {game_round.move_num} ходу')
