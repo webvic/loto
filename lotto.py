@@ -142,7 +142,7 @@ class PlayRound:
 
         while (barrel := self.lotto.draw()):
             self.move_num+=1
-            print(f"Выбран бочонок: {barrel}")
+            print(f"Ход {self.move_num}: Выбран бочонок: {barrel}")
 
             # Ходы всех игроков
             for player in self.players:
@@ -224,8 +224,9 @@ if __name__ == "__main__":
     player1 = Player(name="Алиса", is_human=False)
     player2 = Player(name="Боб", is_human=False)  # Робот
     player3 = Player(name="Виктор", is_human=False)  # Робот
+    player4 = Player(name="Лев", is_human=False)  # Робот
 
     # Создаем игровой раунд с двумя игроками
-    game_round = PlayRound(player1, player2, player3)
+    game_round = PlayRound(player1, player2, player3,player4)
     game_round.run_play_round()
     print(f'Спасибо! Игра закончена на {game_round.move_num} ходу')
