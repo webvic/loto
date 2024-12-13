@@ -162,13 +162,13 @@ class PlayRound:
                     return
                 elif status == GameStatus.LOOSE:
 
-                    print(f'{player.name} проиграл(а) и выбывает из игры!')
+                    print(f'Игрок {player.name} проиграл(а) и выбывает из игры!')
                     if len(self.players) >= 2:
                         self.players.remove(player)
 
-                    if len(self.players) == 2:
+                    if len(self.players) >= 2:
                         continue
-                    elif len(self.players) == 1: 
+                    if len(self.players) == 1: 
                         print(f'Остался один игрок {self.players[0].name}. Победа присуждается ему')
                         return
                     else:
