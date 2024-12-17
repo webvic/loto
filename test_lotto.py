@@ -5,23 +5,51 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from lotto import LottoCard, Player, Lotto, PlayRound
-from constants import GameStatus, MISTAKE_RATE, BLANK, CROSS, CARD_ROWS, NUMBERS_PER_ROW, LOTTO_NUM
+from constants import GameStatus, MISTAKE_RATE, BLANK, CROSS, NUMBERS_IN_CARD, LOTTO_NUM,\
+                                CARD_ROWS,CARD_COLS,NUMBERS_PER_ROW
+
+
+def create_lotto_card(numbers, card_rows=CARD_ROWS, card_cols=CARD_COLS, numbers_per_row=NUMBERS_PER_ROW, blank=BLANK):
+    """
+    Создаёт DataFrame для карточки лото на основе предоставленного списка чисел и заданной размерности.
+    
+    :param numbers: Список чисел для заполнения карточки.
+    :param card_rows: Количество строк в карточке.
+    :param card_cols: Количество столбцов в каждой строке.
+    :param numbers_per_row: Количество чисел в каждой строке.
+    :param blank: Значение для заполнения пустых ячеек.
+    :return: pandas.DataFrame с заполненными числами и пустыми ячейками.
+    :raises ValueError: Если количество чисел не соответствует требуемому.
+    """
+    total_numbers = card_rows * numbers_per_row
+
+    if len(numbers) != total_numbers:
+        raise ValueError(f"Ожидалось {total_numbers} чисел для заполнения карточки, получено {len(numbers)}.")
+
+    # Создание DataFrame, заполненного значениями BLANK
+    df = pd.DataFrame(blank, index=range(card_rows), columns=range(card_cols))
+
+    # Разбивка списка чисел на части по numbers_per_row
+    number_chunks = [numbers[i * numbers_per_row:(i + 1) * numbers_per_row] for i in range(card_rows)]
+
+    # Заполнение DataFrame числами
+    for row_idx, chunk in enumerate(number_chunks):
+        df.iloc[row_idx, :numbers_per_row] = chunk
+
+    return df
 
 # Фикстура для создания фиксированной карточки игрока с числами 1-15
 @pytest.fixture
 def predefined_card():
     with patch.object(LottoCard, '__init__', lambda self: None):
         card = LottoCard()
-        # Устанавливаем фиксированную карту с числами 1-15
-        card.card = pd.DataFrame([
-            {0:1, 1:2, 2:3, 3:4, 4:5, 5:BLANK, 6:BLANK, 7:BLANK, 8:BLANK},
-            {0:6, 1:7, 2:8, 3:9, 4:10, 5:BLANK, 6:BLANK, 7:BLANK, 8:BLANK},
-            {0:11, 1:12, 2:13, 3:14, 4:15, 5:BLANK, 6:BLANK, 7:BLANK, 8:BLANK}
-        ], dtype=int)
-        fixed_numbers = list(range(1,16))
+        # Программное заполнение карточки с числами 1-15
+        numbers = list(range(1, 16))
+        card.df = create_lotto_card(numbers=numbers)
+        fixed_numbers = numbers.copy()
         
         # Проверка типов данных
-        assert all(card.card.dtypes == int), "Все числа в карточке должны быть целыми числами"
+        assert all(card.df.dtypes == int), "Все числа в карточке должны быть целыми числами"
         
         return card, fixed_numbers
 
@@ -30,16 +58,13 @@ def predefined_card():
 def predefined_card_robot():
     with patch.object(LottoCard, '__init__', lambda self: None):
         card = LottoCard()
-        # Устанавливаем фиксированную карту робота с числами 16-30
-        card.card = pd.DataFrame([
-            {0:16, 1:17, 2:18, 3:19, 4:20, 5:BLANK, 6:BLANK, 7:BLANK, 8:BLANK},
-            {0:21, 1:22, 2:23, 3:24, 4:25, 5:BLANK, 6:BLANK, 7:BLANK, 8:BLANK},
-            {0:26, 1:27, 2:28, 3:29, 4:30, 5:BLANK, 6:BLANK, 7:BLANK, 8:BLANK}
-        ], dtype=int)
-        fixed_numbers = list(range(16,31))
+        # Программное заполнение карточки робота с числами 16-30
+        numbers = list(range(16, 31))
+        card.df = create_lotto_card(numbers=numbers)
+        fixed_numbers = numbers.copy()
         
         # Проверка типов данных
-        assert all(card.card.dtypes == int), "Все числа в карточке должны быть целыми числами"
+        assert all(card.df.dtypes == int), "Все числа в карточке должны быть целыми числами"
         
         return card, fixed_numbers
 
@@ -57,17 +82,17 @@ def predefined_players(predefined_card, predefined_card_robot):
 # Тестирование создания карточки LottoCard
 def test_lotto_card_creation_unique_numbers(predefined_card):
     card, fixed_numbers = predefined_card
-    numbers = card.card.values.flatten()
+    numbers = card.df.values.flatten()
     numbers = numbers[numbers != BLANK]  # Убираем BLANK
-    assert len(numbers) == CARD_ROWS * NUMBERS_PER_ROW, f"Карточка должна содержать {CARD_ROWS * NUMBERS_PER_ROW} уникальных чисел"
-    assert len(set(numbers)) == CARD_ROWS * NUMBERS_PER_ROW, "Числа на карточке должны быть уникальными"
+    assert len(numbers) == NUMBERS_IN_CARD, f"Карточка должна содержать {NUMBERS_IN_CARD} уникальных чисел"
+    assert len(set(numbers)) == NUMBERS_IN_CARD, "Числа на карточке должны быть уникальными"
     for num in numbers:
         assert 1 <= num <= LOTTO_NUM, f"Число {num} должно быть в диапазоне от 1 до {LOTTO_NUM}"
 
 # Тестирование сортировки чисел в каждом ряду
 def test_card_rows_sorted(predefined_card):
     card, _ = predefined_card
-    for index, row in card.card.iterrows():
+    for index, row in card.df.iterrows():
         # Извлекаем числа из ряда, игнорируя BLANK
         numbers = sorted([num for num in row if num != BLANK])
         extracted_numbers = [num for num in row if num != BLANK]
@@ -79,7 +104,7 @@ def test_player_check_barrel_found(predefined_card):
     player = Player(name="Тестовый игрок", is_human=True, card=card, mistake_rate=MISTAKE_RATE)
     row, col = player.check_barrel(1)
     # Найдём реальные позиции числа 1
-    expected_positions = list(zip(*np.where(card.card == 1)))
+    expected_positions = list(zip(*np.where(card.df == 1)))
     assert expected_positions, "Число 1 должно быть на карточке"
     expected_row, expected_col = expected_positions[0]
     assert row == expected_row, f"Число должно быть найдено на строке {expected_row}"
@@ -100,7 +125,7 @@ def test_player_update_moves_list(predefined_card):
     assert 0 in player.moves['col'], "Колонка должна быть добавлена в список ходов"
     assert status == GameStatus.NEXT_MOVE, "Статус должен быть NEXT_MOVE"
     # Проверяем, что число зачёркнуто
-    assert player.card.card.iloc[0, 0] == CROSS, "Число должно быть зачёркнуто"
+    assert player.card.df.iloc[0, 0] == CROSS, "Число должно быть зачёркнуто"
 
 # Тестирование правильного зачёркивания числа
 def test_player_check_move_correct_strike(predefined_card):
@@ -108,14 +133,14 @@ def test_player_check_move_correct_strike(predefined_card):
     player = Player(name="Тестовый игрок", is_human=True, card=card, mistake_rate=MISTAKE_RATE)
     
     # Убедимся, что число 1 присутствует на карточке перед ходом
-    assert 1 in player.card.card.values, "Число 1 должно быть на карточке"
+    assert 1 in player.card.df.values, "Число 1 должно быть на карточке"
     
     # Выполним ход: зачеркнем число 1
     status = player.check_move(True, 1)
     assert status == GameStatus.NEXT_MOVE, "Статус должен быть NEXT_MOVE"
     
     # Найдём позиции числа 1 после зачёркивания (должно быть заменено на CROSS)
-    positions = list(zip(*np.where(player.card.card == CROSS)))
+    positions = list(zip(*np.where(player.card.df == CROSS)))
     assert positions, "Число 1 должно быть заменено на CROSS на карточке"
     
     # Дополнительно можно проверить, что на этих позициях действительно было число 1 до замены
@@ -130,17 +155,17 @@ def test_player_check_move_correct_strike_alternative(predefined_card):
     player = Player(name="Тестовый игрок", is_human=True, card=card, mistake_rate=MISTAKE_RATE)
     
     # Убедимся, что число 1 присутствует на карточке перед ходом
-    assert 1 in player.card.card.values, "Число 1 должно быть на карточке"
+    assert 1 in player.card.df.values, "Число 1 должно быть на карточке"
     
     # Выполним ход: зачеркнем число 1
     status = player.check_move(True, 1)
     assert status == GameStatus.NEXT_MOVE, "Статус должен быть NEXT_MOVE"
     
     # Убедимся, что число 1 больше не присутствует на карточке
-    assert 1 not in player.card.card.values, "Число 1 должно быть заменено на CROSS"
+    assert 1 not in player.card.df.values, "Число 1 должно быть заменено на CROSS"
     
     # Убедимся, что символ CROSS теперь присутствует на месте числа 1
-    assert CROSS in player.card.card.values, "Число должно быть зачёркнуто (заменено на CROSS)"
+    assert CROSS in player.card.df.values, "Число должно быть зачёркнуто (заменено на CROSS)"
 
 # Тестирование правильного пропуска хода
 def test_player_check_move_correct_skip(predefined_card):
@@ -186,7 +211,7 @@ def test_player_check_move_win(predefined_card):
 
 # Тестирование метода draw в классе Lotto
 def test_lotto_draw():
-    total_numbers = CARD_ROWS * NUMBERS_PER_ROW
+    total_numbers = NUMBERS_IN_CARD
     with patch.object(Lotto, 'draw', side_effect=list(range(1, total_numbers + 1)) + [None]):
         lotto = Lotto(max_number=total_numbers)
         numbers = []
@@ -206,21 +231,21 @@ def test_play_round_robot_win(predefined_players):
     play_round = PlayRound(player1, player2)
 
     # Мокаем последовательность бочонков, включающую все 15 чисел робота1
-    with patch.object(Lotto, 'draw', side_effect=list(range(1, CARD_ROWS * NUMBERS_PER_ROW +1 )) + [None]):
+    with patch.object(Lotto, 'draw', side_effect=list(range(1, NUMBERS_IN_CARD +1 )) + [None]):
         with patch('builtins.print') as mocked_print:
             play_round.run_play_round()
             # Проверяем, что робот1 выиграл
-            mocked_print.assert_any_call('Поздравляю! Робот1 выиграл(а)!')
+            mocked_print.assert_any_call(f'Поздравляю! {player1.name} выиграл(а)!')
 
     # Дополнительные проверки:
     # Проверяем, что у робота1 все числа вычеркнуты
-    for row in player1.card.card.itertuples(index=False):
+    for row in player1.card.df.itertuples(index=False):
         for num in row:
             if num != BLANK:
                 assert num == CROSS, f"Число {num} должно быть зачёркнуто"
 
     # Проверяем, что у робота2 не осталось изменений
-    for row in player2.card.card.itertuples(index=False):
+    for row in player2.card.df.itertuples(index=False):
         for num in row:
             if num != BLANK:
                 assert num != CROSS, f"Число {num} не должно быть зачёркнуто"
@@ -280,7 +305,7 @@ def test_play_round_human_player_win(predefined_card, predefined_card_robot):
     play_round = PlayRound(player1, player2)
 
     # Мокаем последовательность бочонков, чтобы человек выиграл
-    with patch.object(Lotto, 'draw', side_effect=list(range(1, CARD_ROWS * NUMBERS_PER_ROW +1 )) + [None]):
+    with patch.object(Lotto, 'draw', side_effect=list(range(1, NUMBERS_IN_CARD +1 )) + [None]):
         # Мокаем ввод пользователя
         with patch('builtins.input', return_value='y'):
             # Мокаем метод check_move для роботов

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from constants import (
     GameStatus, LOTTO_NUM, NUMBER_RANGE, CARD_ROWS, CARD_COLS,
-    NUMBERS_PER_ROW, BLANK, CROSS, MISTAKE_RATE
+    NUMBERS_PER_ROW, NUMBERS_IN_CARD, BLANK, CROSS, CROSS_STR, MISTAKE_RATE
 )
 
 class LottoCard:
@@ -20,14 +20,22 @@ class LottoCard:
         if numbers is None:
             self.numbers = NUMBER_RANGE.copy()
         else:
-            if len(numbers) < CARD_ROWS * NUMBERS_PER_ROW:
-                raise ValueError(f"Для создания карточки необходимо как минимум {CARD_ROWS * NUMBERS_PER_ROW} чисел.")
+            if len(numbers) < NUMBERS_IN_CARD:
+                raise ValueError(f"Для создания карточки необходимо как минимум {NUMBERS_IN_CARD} чисел.")
             if len(set(numbers)) != len(numbers):
                 raise ValueError("Числа в списке должны быть уникальными.")
             if not all(num in NUMBER_RANGE for num in numbers):
                 raise ValueError(f"Все числа должны быть в диапазоне от {NUMBER_RANGE[0]} до {NUMBER_RANGE[-1]}.")
             self.numbers = numbers.copy()
         self.card = self._create_card()
+    
+    @property
+    def df(self):
+        return self.card
+    
+    @df.setter
+    def df(self, new_card):
+        self.card = new_card
     
     def _create_card(self):        
         card_rows = []
@@ -43,7 +51,7 @@ class LottoCard:
             self.numbers = [num for num in self.numbers if num not in row_numbers]
         
         # Создаём DataFrame с типом данных object
-        card = pd.DataFrame(card_rows, dtype=object)
+        card = pd.DataFrame(card_rows)
         print('Сгенерил карту:\n', card)
         return card
 
@@ -71,7 +79,7 @@ class Player:
         :param barrel: Номер бочонка.
         :return: Кортеж из индексов строки и колонки, если число найдено, иначе (None, None).
         """
-        row_idx, col_idx = np.where(self.card.card == barrel)
+        row_idx, col_idx = np.where(self.card.df == barrel)
         
         if row_idx.size:  # Если число найдено, позиции не пустые
             return int(row_idx[0]), int(col_idx[0])
@@ -92,10 +100,10 @@ class Player:
         self.moves['col'].append(col_idx)
         print(f'Игрок {self.name} вычеркнул бочонок {barrel} на строке {row_idx} в столбце {col_idx}')
         # Заменяем число на CROSS в карточке
-        self.card.card.iat[row_idx, col_idx] = CROSS
+        self.card.df.iat[row_idx, col_idx] = CROSS
 
         # Проверяем окончание игры
-        if len(self.moves['row']) < CARD_ROWS * NUMBERS_PER_ROW:
+        if len(self.moves['row']) < NUMBERS_IN_CARD:
             return GameStatus.NEXT_MOVE
         else:
             return GameStatus.WIN
@@ -142,14 +150,13 @@ class Player:
         :return: DataFrame с актуализированной карточкой.
         """
         # Преобразуем DataFrame в строки и заменяем '0' на пустую строку
-        df_str = self.card.card.astype(str).replace(str(BLANK), '')
+        df_str = self.card.df.astype(str).replace(str(BLANK), '')
         row_idx = self.moves['row']
         col_idx = self.moves['col']
 
         # Если список индексов непустой, произведем замену цифр на прочерки
         if row_idx and col_idx:
-            for r, c in zip(row_idx, col_idx):
-                df_str.at[r, c] = CROSS
+            df_str.values[row_idx, col_idx] = CROSS_STR
 
         # Возвращаем актуализированную таблицу
         return df_str
