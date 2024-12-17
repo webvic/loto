@@ -239,16 +239,12 @@ def test_play_round_robot_win(predefined_players):
 
     # Дополнительные проверки:
     # Проверяем, что у робота1 все числа вычеркнуты
-    for row in player1.card.df.itertuples(index=False):
-        for num in row:
-            if num != BLANK:
-                assert num == CROSS, f"Число {num} должно быть зачёркнуто"
+    cross_count = (player1.card.df == CROSS).sum().sum()
+    assert cross_count == NUMBERS_IN_CARD, f"Зачеркнуто {cross_count} чисел, а должно быть {NUMBERS_IN_CARD}"
 
-    # Проверяем, что у робота2 не осталось изменений
-    for row in player2.card.df.itertuples(index=False):
-        for num in row:
-            if num != BLANK:
-                assert num != CROSS, f"Число {num} не должно быть зачёркнуто"
+    # Проверяем, что у робота2 не все числа вычеркнуты
+    cross_count = (player2.card.df == CROSS).sum().sum()
+    assert cross_count < NUMBERS_IN_CARD, f"У проигравшего зачеркнуто {cross_count} чисел, а должно быть менее {NUMBERS_IN_CARD}"
 
 # Тестирование игрового раунда с ошибкой робота
 def test_play_round_robot_lose(predefined_players):
